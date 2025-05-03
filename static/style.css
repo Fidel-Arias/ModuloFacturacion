@@ -39,6 +39,13 @@ nav ul li a {
     color: white;
     text-decoration: none;
 }
+.cerrar_sesion {
+    background: #e74c3c;
+    color: white;
+    padding: 0.5rem 1rem;
+    text-decoration: none;
+    border-radius: 4px;
+}
 
 main {
     padding: 1rem;
