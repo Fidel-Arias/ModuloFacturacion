@@ -6,14 +6,17 @@
     <title>Sistema de Facturación</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
     <header>
         <h1>Sistema de Facturación</h1>
         <nav>
             <ul>
+                {% if session.get('usuario') %}
+                    <li>Username: <strong>{{ session['usuario'] }}</strong></li>
+                {% endif %}
                 <li><a href="{{ url_for('listar_facturas') }}">Facturas</a></li>
                 <li><a href="{{ url_for('nueva_factura') }}">Nueva Factura</a></li>
+                <li><a href="{{ url_for('logout') }}" class="cerrar_sesion">Cerrar sesión</a></li>
             </ul>
         </nav>
     </header>
