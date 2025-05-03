@@ -39,3 +39,7 @@ Ejecuta el archivo `init_db.py`una unica vez para crear las tablas y valores
 + 2022404592 Laureano Tupac Yupanki Natty Jimena - Usuario: natt25
 + 2022246652 Mamani Mendiguri Mirella Thiani - Usuario: MIRELLAMM4
 + 2020177181 Merma Alarcon Luis A. - Usuario: Wasausky16
+
+# ENLACE DE GITHUB
+`https://github.com/Fidel-Arias/ModuloFacturacion`
+
