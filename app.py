@@ -1,15 +1,17 @@
 from flask import Flask, render_template, request, redirect, url_for
 import psycopg2
 from psycopg2 import sql
+import os
 
 app = Flask(__name__)
 
 # Configuración de la base de datos
 DB_CONFIG = {
-    'host': 'localhost',
-    'database': 'facturacion_db',
-    'user': 'postgres',
-    'password': 'ketsunoks@365'
+    'host': os.environ["DB_HOST"],
+    'port': os.environ["DB_PORT"],
+    'database': os.environ["DB_NAME"],
+    'user': os.environ["DB_USER"],
+    'password': os.environ["DB_PASSWORD"]
 }
 
 def get_db_connection():
