@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import psycopg2
 from psycopg2 import sql
 import os
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
+app.secret_key = os.environ["FLASK_SECRET_KEY"]
 
 # Configuración de la base de datos
 DB_CONFIG = {
@@ -18,15 +20,72 @@ def get_db_connection():
     conn = psycopg2.connect(**DB_CONFIG)
     return conn
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Buscar el usuario
+        cur.execute("SELECT * FROM obtener_usuario_por_username(%s);", (username,))
+        user = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if user and check_password_hash(user[2], password):
+            session['usuario_id'] = user[0]
+            session['usuario'] = str(user[1]).upper()
+            return redirect(url_for('listar_facturas'))
+        else:
+            return "Credenciales inválidas", 401
+
+    return render_template('login.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        email = request.form['email']
+        password = request.form['password']
+        key_secret = request.form['key_secret']
+
+        key = os.environ["KEY_SECRET_ADMIN"]
+
+        if key_secret != key:
+            return "Clave secreta incorrecta", 401
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute('CALL insertar_usuario(%s, %s, %s);',
+                    (nombre, email, generate_password_hash(password)))
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return redirect(url_for('login'))
+    return render_template('register.html')
+
 @app.route('/')
 def index():
-    return redirect(url_for('listar_facturas'))
+    return redirect(url_for('login'))
+
+@app.route('/logout')
+def logout():
+    session.clear()  # Borra todos los datos de sesión
+    return redirect(url_for('login'))
 
 @app.route('/facturas')
 def listar_facturas():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT f.id, f.numero, f.fecha, c.nombre as cliente, f.total FROM facturas f JOIN clientes c ON f.cliente_id = c.id ORDER BY f.fecha DESC;')
+    cur.execute('SELECT * FROM obtener_facturas();')
     facturas = cur.fetchall()
     cur.close()
     conn.close()
@@ -34,12 +93,14 @@ def listar_facturas():
 
 @app.route('/factura/nueva', methods=['GET', 'POST'])
 def nueva_factura():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
     if request.method == 'POST':
         # Obtener datos del formulario
         cliente_id = request.form['cliente_id']
         items = []
         total = 0
-        
+
         # Procesar items
         for i in range(1, 6):  # Máximo 5 items por factura
             producto_id = request.form.get(f'producto_id_{i}')
@@ -47,7 +108,7 @@ def nueva_factura():
             if producto_id and cantidad:
                 conn = get_db_connection()
                 cur = conn.cursor()
-                cur.execute('SELECT precio FROM productos WHERE id = %s;', (producto_id,))
+                cur.execute('SELECT * FROM obtener_precio_producto(%s);', (producto_id,))
                 precio = cur.fetchone()[0]
                 subtotal = float(precio) * float(cantidad)
                 items.append({
@@ -59,75 +120,73 @@ def nueva_factura():
                 total += subtotal
                 cur.close()
                 conn.close()
-        
+
         # Insertar factura con número generado
         conn = get_db_connection()
         cur = conn.cursor()
-        
+
         # Obtener el próximo número de factura de la secuencia
-        cur.execute("SELECT nextval('factura_numero_seq')")
+        cur.execute("SELECT * FROM obtener_siguiente_numero_factura()")
         numero_factura = f"FACT-{cur.fetchone()[0]}"
-        
+
         cur.execute(
-            'INSERT INTO facturas (numero, cliente_id, total) VALUES (%s, %s, %s) RETURNING id;',
+            'SELECT insertar_factura(%s, %s, %s);',
             (numero_factura, cliente_id, total)
         )
         factura_id = cur.fetchone()[0]
-        
+
         # Insertar items de factura
         for item in items:
             cur.execute(
-                'INSERT INTO factura_items (factura_id, producto_id, cantidad, precio, subtotal) VALUES (%s, %s, %s, %s, %s);',
+                'CALL insertar_factura_item(%s, %s, %s, %s, %s);',
                 (factura_id, item['producto_id'], item['cantidad'], item['precio'], item['subtotal'])
             )
-        
+
         conn.commit()
         cur.close()
         conn.close()
-        
+
         return redirect(url_for('ver_factura', id=factura_id))
-    
+
     else:
         conn = get_db_connection()
         cur = conn.cursor()
-        
+
         # Obtener clientes
-        cur.execute('SELECT id, nombre FROM clientes ORDER BY nombre;')
+        cur.execute('SELECT * FROM obtener_clientes();')
         clientes = cur.fetchall()
-        
+
         # Obtener productos
-        cur.execute('SELECT id, nombre, precio FROM productos ORDER BY nombre;')
+        cur.execute('SELECT * FROM obtener_productos();')
         productos = cur.fetchall()
-        
+
         cur.close()
         conn.close()
-        
+
         return render_template('nueva_factura.html', clientes=clientes, productos=productos)
 
 @app.route('/factura/<int:id>')
 def ver_factura(id):
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
     conn = get_db_connection()
     cur = conn.cursor()
-    
+
     # Obtener factura
     cur.execute('''
-        SELECT f.id, f.numero, f.fecha, f.total, c.id as cliente_id, c.nombre as cliente_nombre, 
-               c.direccion as cliente_direccion, c.telefono as cliente_telefono
-        FROM facturas f JOIN clientes c ON f.cliente_id = c.id WHERE f.id = %s;
+        SELECT * FROM obtener_factura_por_id(%s);
     ''', (id,))
     factura = cur.fetchone()
-    
+
     # Obtener items
     cur.execute('''
-        SELECT fi.id, p.nombre as producto, fi.cantidad, fi.precio, fi.subtotal
-        FROM factura_items fi JOIN productos p ON fi.producto_id = p.id
-        WHERE fi.factura_id = %s;
+        SELECT * FROM obtener_items_factura(%s);
     ''', (id,))
     items = cur.fetchall()
-    
+
     cur.close()
     conn.close()
-    
+
     return render_template('ver_factura.html', factura=factura, items=items)
 
 if __name__ == '__main__':
