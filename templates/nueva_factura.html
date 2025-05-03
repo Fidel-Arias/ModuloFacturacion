@@ -34,7 +34,7 @@
                             {% endfor %}
                         </select>
                     </td>
-                    <td><input type="number" name="cantidad_{{ i }}" id="cantidad_{{ i }}" min="1" class="cantidad-input"></td>
+                    <td><input type="number" name="cantidad_{{ i }}" id="cantidad_{{ i }}" min="1" max="20" class="cantidad-input" pattern="^[0-9]+$"></td>
                     <td><span id="precio_{{ i }}" class="precio">0.00</span></td>
                     <td><span id="subtotal_{{ i }}" class="subtotal">0.00</span></td>
                 </tr>
