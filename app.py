@@ -30,7 +30,7 @@ def listar_facturas():
     facturas = cur.fetchall()
     cur.close()
     conn.close()
-    return render_template('facturas.html', facturas=facturas)
+    return render_template('factura.html', facturas=facturas)
 
 @app.route('/factura/nueva', methods=['GET', 'POST'])
 def nueva_factura():
