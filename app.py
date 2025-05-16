@@ -26,15 +26,27 @@ def login():
         username = request.form['username']
         password = request.form['password']
 
+        if not username or not password:
+            return "Por favor, ingrese su nombre de usuario y contraseña", 400
+        
+        if len(username) < 5 or len(password) < 8:
+            return "El nombre de usuario debe tener al menos 5 caracteres y la contraseña al menos 8 caracteres", 400
+
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Buscar el usuario
-        cur.execute("SELECT * FROM obtener_usuario_por_username(%s);", (username,))
-        user = cur.fetchone()
+        try:
+            # Buscar el usuario
+            cur.execute("SELECT * FROM obtener_usuario_por_username(%s);", (username,))
+            user = cur.fetchone()
 
-        cur.close()
-        conn.close()
+        except Exception as e:
+            print(f"Error al buscar el usuario: {e}")
+            return "Error interno", 500
+
+        finally:
+            cur.close()
+            conn.close()
 
         if user and check_password_hash(user[2], password):
             session['usuario_id'] = user[0]
@@ -49,7 +61,7 @@ def login():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        nombre = request.form['nombre']
+        username = request.form['nombre']
         email = request.form['email']
         password = request.form['password']
         key_secret = request.form['key_secret']
@@ -59,13 +71,21 @@ def register():
         if key_secret != key:
             return "Clave secreta incorrecta", 401
 
+        # Verificar si el usuario ya existe
+
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute('CALL insertar_usuario(%s, %s, %s);',
-                    (nombre, email, generate_password_hash(password)))
-        conn.commit()
-        cur.close()
-        conn.close()
+        try:
+            cur.execute('CALL insertar_usuario(%s, %s, %s);',
+                    (username, email, generate_password_hash(password)))
+            conn.commit()
+        except Exception as e:
+            print(f"Error al registrar el usuario: {e}")
+            conn.rollback()
+            return f"El usuario ya existe con ese username o email", 500
+        finally:
+            cur.close()
+            conn.close()
 
         return redirect(url_for('login'))
     return render_template('register.html')
