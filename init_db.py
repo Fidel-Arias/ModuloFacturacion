@@ -55,6 +55,14 @@ def create_tables():
         """,
         """
         CREATE SEQUENCE IF NOT EXISTS factura_numero_seq START WITH 1000
+        """,
+        """
+        CREATE TABLE usuario (
+            id SERIAL PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
+            email TEXT NOT NULL UNIQUE,
+            password TEXT NOT NULL
+        )
         """
     )
     
