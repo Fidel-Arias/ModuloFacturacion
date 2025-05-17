@@ -16,6 +16,7 @@ def create_tables():
         """
         CREATE TABLE IF NOT EXISTS clientes (
             id SERIAL PRIMARY KEY,
+            ruc VARCHAR(11) NOT NULL UNIQUE,
             nombre VARCHAR(100) NOT NULL,
             direccion TEXT,
             telefono VARCHAR(20),
@@ -65,6 +66,215 @@ def create_tables():
         )
         """
     )
+
+    procedures = (
+        """
+        CREATE OR REPLACE FUNCTION obtener_facturas()
+        RETURNS TABLE(
+            id INT,
+            numero TEXT,
+            fecha DATE,
+            cliente TEXT,
+            total NUMERIC
+        )
+        LANGUAGE sql
+        AS $$
+            SELECT f.id, f.numero, f.fecha, c.nombre, f.total
+            FROM facturas f
+            JOIN clientes c ON f.cliente_id = c.id
+            ORDER BY f.fecha DESC;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_precio_producto(p_id INT)
+        RETURNS NUMERIC
+        LANGUAGE sql
+        AS $$
+            SELECT precio FROM productos WHERE id = p_id;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_siguiente_numero_factura()
+        RETURNS BIGINT
+        LANGUAGE sql
+        AS $$
+            SELECT nextval('factura_numero_seq');
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION insertar_factura(
+            p_numero TEXT,
+            p_cliente_id INT,
+            p_total NUMERIC
+        )
+        RETURNS INT
+        LANGUAGE plpgsql
+        AS $$
+        DECLARE
+            nuevo_id INT;
+        BEGIN
+            INSERT INTO facturas (numero, cliente_id, total)
+            VALUES (p_numero, p_cliente_id, p_total)
+            RETURNING id INTO nuevo_id;
+
+            RETURN nuevo_id;
+        END;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE PROCEDURE insertar_factura_item(
+            IN p_factura_id INTEGER,
+            IN p_producto_id INTEGER,
+            IN p_cantidad NUMERIC,
+            IN p_precio NUMERIC,
+            IN p_subtotal NUMERIC
+        )
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            INSERT INTO factura_items (factura_id, producto_id, cantidad, precio, subtotal)
+            VALUES (p_factura_id, p_producto_id, p_cantidad, p_precio, p_subtotal);
+        END;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_clientes()
+        RETURNS TABLE(id INT, nombre TEXT)
+        LANGUAGE sql
+        AS $$
+            SELECT id, nombre FROM clientes ORDER BY nombre;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_productos()
+        RETURNS TABLE(id INT, nombre TEXT, precio NUMERIC)
+        LANGUAGE sql
+        AS $$
+            SELECT id, nombre, precio FROM productos ORDER BY nombre;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_factura_por_id(p_id INT)
+        RETURNS TABLE(
+            id INT,
+            numero TEXT,
+            fecha DATE,
+            total NUMERIC,
+            cliente_id INT,
+            cliente_nombre TEXT,
+            cliente_direccion TEXT,
+            cliente_telefono TEXT
+        )
+        LANGUAGE sql
+        AS $$
+            SELECT f.id, f.numero, f.fecha, f.total,
+                c.id, c.nombre, c.direccion, c.telefono
+            FROM facturas f
+            JOIN clientes c ON f.cliente_id = c.id
+            WHERE f.id = p_id;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_items_factura(p_factura_id INT)
+        RETURNS TABLE(
+            id INT,
+            producto TEXT,
+            cantidad NUMERIC,
+            precio NUMERIC,
+            subtotal NUMERIC
+        )
+        LANGUAGE sql
+        AS $$
+            SELECT fi.id, p.nombre, fi.cantidad, fi.precio, fi.subtotal
+            FROM factura_items fi
+            JOIN productos p ON fi.producto_id = p.id
+            WHERE fi.factura_id = p_factura_id;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE PROCEDURE insertar_usuario(
+            IN p_username TEXT,
+            IN p_email TEXT,
+            IN p_password TEXT
+        )
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            IF EXISTS (SELECT 1 FROM usuario WHERE username = p_username) THEN
+                RAISE EXCEPTION 'Usuario con ese nombre ya existe';
+            END IF;
+
+            INSERT INTO usuario (username, email, password)
+            VALUES (p_username, p_email, p_password);
+        END;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE FUNCTION obtener_usuario_por_username(p_username TEXT)
+        RETURNS TABLE (
+            id INT,
+            username TEXT,
+            password TEXT
+        )
+        LANGUAGE sql
+        AS $$
+            SELECT id, username, password
+            FROM usuario
+            WHERE username = p_username;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE PROCEDURE borrar_factura(p_id INT)
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            DELETE FROM facturas WHERE id=p_id;
+        END;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE PROCEDURE borrar_items_factura(
+            p_factura_id INT
+        )
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            -- Verificar si la factura existe antes de borrar
+            IF NOT EXISTS (SELECT 1 FROM facturas WHERE id = p_factura_id) THEN
+                RAISE EXCEPTION 'La factura con ID % no existe', p_factura_id;
+            END IF;
+            
+            -- Eliminar los items asociados a la factura
+            DELETE FROM factura_items 
+            WHERE factura_id = p_factura_id;
+        END;
+        $$;
+        """,
+        """
+        CREATE OR REPLACE PROCEDURE insertar_cliente(
+            p_ruc VARCHAR(11),
+            p_nombre VARCHAR(100),
+            p_direccion TEXT DEFAULT NULL,
+            p_telefono VARCHAR(20) DEFAULT NULL,
+            p_email VARCHAR(100) DEFAULT NULL
+        )
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            -- Validar que el RUC tenga 11 dígitos
+            IF p_ruc !~ '^[0-9]{11}$' THEN
+                RAISE EXCEPTION 'El RUC debe tener exactamente 11 dígitos';
+            END IF;
+            
+            -- Insertar el nuevo cliente
+            INSERT INTO clientes (ruc, nombre, direccion, telefono, email)
+            VALUES (p_ruc, p_nombre, p_direccion, p_telefono, p_email);
+            
+            RAISE NOTICE 'Cliente insertado correctamente con RUC: %', p_ruc;
+        END;
+        $$;
+        """
+    )
     
     conn = None
     try:
@@ -76,11 +286,31 @@ def create_tables():
         cur.execute("DROP TABLE IF EXISTS facturas CASCADE")
         cur.execute("DROP TABLE IF EXISTS productos CASCADE")
         cur.execute("DROP TABLE IF EXISTS clientes CASCADE")
+        cur.execute("DROP TABLE IF EXISTS usuario CASCADE")
         cur.execute("DROP SEQUENCE IF EXISTS factura_numero_seq")
         conn.commit()
-        
+
+        # Eliminar funciones y procedimientos si existen (solo para desarrollo)
+        cur.execute("DROP FUNCTION IF EXISTS obtener_facturas() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_precio_producto(INTEGER) CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_siguiente_numero_factura() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS insertar_factura(TEXT, INTEGER, NUMERIC) CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS insertar_factura_item() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_clientes() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_productos() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_factura_por_id(INTEGER) CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_items_factura(INTEGER) CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS insertar_usuario() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS obtener_usuario_por_username(TEXT) CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS borrar_factura() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS borrar_items_factura() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS insertar_cliente() CASCADE")
+
         for command in commands:
             cur.execute(command)
+        
+        for procedure in procedures:
+            cur.execute(procedure)
         
         # Insertar datos de prueba
         insert_test_data(cur)
@@ -102,14 +332,14 @@ def insert_test_data(cur):
     
     # Insertar clientes
     clientes = [
-        ("Cliente Uno", "Calle 123", "555-1234", "cliente1@example.com"),
-        ("Cliente Dos", "Avenida 456", "555-5678", "cliente2@example.com"),
-        ("Cliente Tres", "Boulevard 789", "555-9012", "cliente3@example.com")
+        ("Cliente Uno", "10258498574", "Calle 123", "555-1234", "cliente1@example.com"),
+        ("Cliente Dos", "10784596523", "Avenida 456", "555-5678", "cliente2@example.com"),
+        ("Cliente Tres", "10875425896", "Boulevard 789", "555-9012", "cliente3@example.com")
     ]
     
     for cliente in clientes:
         cur.execute(
-            "INSERT INTO clientes (nombre, direccion, telefono, email) VALUES (%s, %s, %s, %s);",
+            "INSERT INTO clientes (nombre, ruc, direccion, telefono, email) VALUES (%s, %s, %s, %s, %s);",
             cliente
         )
     
