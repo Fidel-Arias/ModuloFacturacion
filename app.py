@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
 from psycopg2 import sql
 import os
@@ -114,6 +114,7 @@ def listar_facturas():
 @app.route('/factura/nueva', methods=['GET', 'POST'])
 def nueva_factura():
     if 'usuario' not in session:
+        flash('Debes iniciar sesión para acceder.', 'error')
         return redirect(url_for('login'))
     if request.method == 'POST':
         # Obtener datos del formulario
@@ -125,64 +126,85 @@ def nueva_factura():
         for i in range(1, 6):  # Máximo 5 items por factura
             producto_id = request.form.get(f'producto_id_{i}')
             cantidad = request.form.get(f'cantidad_{i}')
-            if producto_id and cantidad:
-                conn = get_db_connection()
-                cur = conn.cursor()
-                cur.execute('SELECT * FROM obtener_precio_producto(%s);', (producto_id,))
-                precio = cur.fetchone()[0]
-                subtotal = float(precio) * float(cantidad)
-                items.append({
-                    'producto_id': producto_id,
-                    'cantidad': cantidad,
-                    'precio': precio,
-                    'subtotal': subtotal
-                })
-                total += subtotal
+            try:
+                if producto_id and cantidad:
+                    conn = get_db_connection()
+                    cur = conn.cursor()
+                    cur.execute('SELECT * FROM obtener_precio_producto(%s);', (producto_id,))
+                    precio = cur.fetchone()[0]
+                    subtotal = float(precio) * float(cantidad)
+                    items.append({
+                        'producto_id': producto_id,
+                        'cantidad': cantidad,
+                        'precio': precio,
+                        'subtotal': subtotal
+                    })
+                    total += subtotal
+            except Exception as e:
+                print(f"Error al procesar el item: {e}")
+                flash('Error al procesar el item.', 'error')
+                return redirect(url_for('nueva_factura'))
+            finally:
                 cur.close()
                 conn.close()
+        
+        # --- VALIDACIÓN CRÍTICA ---
+        if not items:
+            flash('Error: Una factura debe tener al menos un producto.', 'error')
+            return redirect(url_for('nueva_factura'))  # Redirige de vuelta al formulario
 
-        # Insertar factura con número generado
-        conn = get_db_connection()
-        cur = conn.cursor()
+        try:
+            # Insertar factura con número generado
+            conn = get_db_connection()
+            cur = conn.cursor()
 
-        # Obtener el próximo número de factura de la secuencia
-        cur.execute("SELECT * FROM obtener_siguiente_numero_factura()")
-        numero_factura = f"FACT-{cur.fetchone()[0]}"
+            # Obtener el próximo número de factura de la secuencia
+            cur.execute("SELECT * FROM obtener_siguiente_numero_factura()")
+            numero_factura = f"FACT-{cur.fetchone()[0]}"
 
-        cur.execute(
-            'SELECT insertar_factura(%s, %s, %s);',
-            (numero_factura, cliente_id, total)
-        )
-        factura_id = cur.fetchone()[0]
-
-        # Insertar items de factura
-        for item in items:
             cur.execute(
-                'CALL insertar_factura_item(%s, %s, %s, %s, %s);',
-                (factura_id, item['producto_id'], item['cantidad'], item['precio'], item['subtotal'])
-            )
+                'SELECT insertar_factura(%s, %s, %s);', (numero_factura, cliente_id, total)
+                )
+            factura_id = cur.fetchone()[0]
+            conn.commit()
 
-        conn.commit()
-        cur.close()
-        conn.close()
+            # Insertar items de factura
+            for item in items:
+                cur.execute(
+                    'CALL insertar_factura_item(%s, %s, %s, %s, %s);',
+                    (factura_id, item['producto_id'], item['cantidad'], item['precio'], item['subtotal'])
+                )
 
+            conn.commit()
+        except Exception as e:
+            print(f"Error al insertar la factura: {e}")
+            conn.rollback()
+            flash('Error al insertar la factura.', 'error')
+            return redirect(url_for('nueva_factura'))
+        finally:
+            cur.close()
+            conn.close()
         return redirect(url_for('ver_factura', id=factura_id))
-
     else:
-        conn = get_db_connection()
-        cur = conn.cursor()
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
 
-        # Obtener clientes
-        cur.execute('SELECT * FROM obtener_clientes();')
-        clientes = cur.fetchall()
+            # Obtener clientes
+            cur.execute('SELECT * FROM obtener_clientes();')
+            clientes = cur.fetchall()
 
-        # Obtener productos
-        cur.execute('SELECT * FROM obtener_productos();')
-        productos = cur.fetchall()
+            # Obtener productos
+            cur.execute('SELECT * FROM obtener_productos();')
+            productos = cur.fetchall()
 
-        cur.close()
-        conn.close()
-
+        except Exception as e:
+            print(f"Error al obtener clientes o productos: {e}")
+            flash('Error al cargar los datos.', 'error')
+            return redirect(url_for('listar_facturas'))
+        finally:
+            cur.close()
+            conn.close()
         return render_template('nueva_factura.html', clientes=clientes, productos=productos)
 
 @app.route('/factura/<int:id>')
