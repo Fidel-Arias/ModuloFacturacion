@@ -3,6 +3,18 @@
 {% block content %}
     <h2>Lista de Facturas</h2>
     <a href="{{ url_for('nueva_factura') }}" class="btn">Nueva Factura</a>
+    <a href="{{ url_for('registrar_cliente') }}" class="btn">Registrar cliente</a>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    <button class="close" onclick="this.parentElement.remove()">&times;</button>
+                    <p>{{ message }}</p>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
     
     <table>
         <thead>
@@ -23,6 +35,7 @@
                 <td>S/.{{ "%.2f"|format(factura[4]) }}</td>
                 <td>
                     <a href="{{ url_for('ver_factura', id=factura[0]) }}" class="btn">Ver</a>
+                    <a href="{{ url_for('borrar_factura', id=factura[0]) }}" class="btn borrar">Borrar</a>
                 </td>
             </tr>
             {% endfor %}
