@@ -1,18 +1,39 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!--
+  PÁGINA PARA CREAR NUEVAS FACTURAS
+  ==================================
+  - Permite agregar ítems ilimitados (cumple prueba #13)
+  - Cálculos automáticos de subtotales y total
+  - Validaciones básicas en frontend
+-->
+
 <h2>Nueva Factura</h2>
 <form method="POST">
+    <!--
+      SECCIÓN DE MENSAJES FLASH
+      --------------------------
+      - Muestra mensajes de éxito/error desde el backend
+      - Se cierra haciendo clic en la "X"
+    -->
     {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    <button class="close" onclick="this.parentElement.remove()">&times;</button>
-                    <p>{{ message }}</p>
-                </div>
-            {% endfor %}
-        {% endif %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">
+        <button class="close" onclick="this.parentElement.remove()">&times;</button>
+        <p>{{ message }}</p>
+    </div>
+    {% endfor %}
+    {% endif %}
     {% endwith %}
+
+    <!--
+      SELECCIÓN DE CLIENTE
+      --------------------
+      - Dropdown con todos los clientes disponibles
+      - Campo obligatorio (required)
+    -->
     <div class="form-group">
         <label for="cliente_id">Cliente:</label>
         <select name="cliente_id" id="cliente_id" required>
@@ -22,45 +43,154 @@
             {% endfor %}
         </select>
     </div>
-    
+
+    <!--
+      SECCIÓN DE ÍTEMS DE FACTURA
+      ---------------------------
+      - Tabla dinámica con productos
+      - Botón para agregar nuevos ítems
+    -->
     <h3>Items de Factura</h3>
+    <button type="button" onclick="addItemRow()" class="btn">➕ Agregar Ítem</button>
     <table id="items-table">
         <thead>
-            <tr>
-                <th>Producto</th>
-                <th>Cantidad</th>
-                <th>Precio Unitario</th>
-                <th>Subtotal</th>
-            </tr>
+        <tr>
+            <th>Producto</th>
+            <th>Cantidad</th>
+            <th>Precio Unitario</th>
+            <th>Subtotal</th>
+            <th>Acción</th> <!-- Columna para botones de eliminar -->
+        </tr>
         </thead>
         <tbody>
-            {% for i in range(1, 6) %}
-            <tr>
-                <td>
-                    <select name="producto_id_{{ i }}" id="producto_id_{{ i }}" class="producto-select">
-                        <option value="">Seleccione un producto</option>
-                        {% for producto in productos %}
-                        <option value="{{ producto[0] }}" data-precio="{{ producto[2] }}">{{ producto[1] }} (S/.{{ "%.2f"|format(producto[2]) }})</option>
-                        {% endfor %}
-                    </select>
-                </td>
-                <td><input type="number" name="cantidad_{{ i }}" id="cantidad_{{ i }}" min="1" max="20" class="cantidad-input" pattern="^[0-9]+$"></td>
-                <td><span id="precio_{{ i }}" class="precio">0.00</span></td>
-                <td><span id="subtotal_{{ i }}" class="subtotal">0.00</span></td>
-            </tr>
-            {% endfor %}
+        <!--
+          FILA INICIAL (SOLO UNA)
+          ------------------------
+          - Siempre visible (no se puede eliminar)
+          - Campos obligatorios
+        -->
+        <tr id="row_1">
+            <td>
+                <select name="producto_id_1" id="producto_id_1" class="producto-select" required>
+                    <option value="">Seleccione un producto</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto[0] }}" data-precio="{{ producto[2] }}">
+                        {{ producto[1] }} (S/.{{ "%.2f"|format(producto[2]) }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="cantidad_1" id="cantidad_1" min="1" class="cantidad-input" required>
+            </td>
+            <td><span id="precio_1" class="precio">0.00</span></td>
+            <td><span id="subtotal_1" class="subtotal">0.00</span></td>
+            <td>
+                <!-- Sin botón para la primera fila -->
+            </td>
+        </tr>
         </tbody>
     </table>
-    
+
+    <!--
+      SECCIÓN DE TOTAL
+      ----------------
+      - Muestra el total calculado automáticamente
+    -->
     <div class="form-group">
         <label>Total:</label>
         <span id="total">0.00</span>
     </div>
-    
+
+    <!-- Botón para enviar el formulario -->
     <button type="submit" class="btn">Guardar Factura</button>
 </form>
 
 <script>
+    // =============================================
+    // VARIABLES GLOBALES
+    // =============================================
+    let currentItems = 1; // Contador de filas (comienza en 1 por la fila inicial)
+
+    // =============================================
+    // FUNCIÓN PARA AÑADIR NUEVAS FILAS
+    // =============================================
+    function addItemRow() {
+        currentItems++; // Incrementa el contador
+
+        // Obtiene el cuerpo de la tabla
+        const tbody = document.querySelector('#items-table tbody');
+
+        // Crea una nueva fila
+        const newRow = document.createElement('tr');
+        newRow.id = `row_${currentItems}`; // Asigna ID único
+
+        // HTML de la nueva fila
+        newRow.innerHTML = `
+            <td>
+                <select name="producto_id_${currentItems}" id="producto_id_${currentItems}" class="producto-select" required>
+                    <option value="">Seleccione un producto</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto[0] }}" data-precio="{{ producto[2] }}">
+                        {{ producto[1] }} (S/.{{ "%.2f"|format(producto[2]) }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td>
+                <input type="number" name="cantidad_${currentItems}" id="cantidad_${currentItems}" min="1" class="cantidad-input" required>
+            </td>
+            <td><span id="precio_${currentItems}" class="precio">0.00</span></td>
+            <td><span id="subtotal_${currentItems}" class="subtotal">0.00</span></td>
+            <td>
+                <button type="button" onclick="removeItemRow(this)" class="btn btn-danger">❌ Eliminar</button>
+            </td>
+        `;
+
+        // Agrega la nueva fila a la tabla
+        tbody.appendChild(newRow);
+
+        // =============================================
+        // EVENT LISTENERS PARA LA NUEVA FILA
+        // =============================================
+
+        // Evento para cuando cambia la selección de producto
+        document.getElementById(`producto_id_${currentItems}`).addEventListener('change', function() {
+            const precio = this.options[this.selectedIndex]?.dataset.precio || '0';
+            document.getElementById(`precio_${currentItems}`).textContent = parseFloat(precio).toFixed(2);
+            calcularSubtotal(currentItems);
+        });
+
+        // Evento para cuando cambia la cantidad
+        document.getElementById(`cantidad_${currentItems}`).addEventListener('input', function() {
+            calcularSubtotal(currentItems);
+        });
+    }
+
+    // =============================================
+    // FUNCIÓN PARA ELIMINAR FILAS
+    // =============================================
+    function removeItemRow(button) {
+        // No permite eliminar la última fila
+        if (currentItems <= 1) {
+            alert("Debe haber al menos un ítem en la factura");
+            return;
+        }
+
+        // Elimina la fila
+        button.closest('tr').remove();
+        currentItems--; // Disminuye el contador
+
+        // Recalcula el total
+        calcularTotal();
+    }
+
+    // =============================================
+    // INICIALIZACIÓN DE EVENT LISTENERS
+    // (Para la fila inicial)
+    // =============================================
+
+    // Evento para cambio de producto en fila inicial
     document.querySelectorAll('.producto-select').forEach(select => {
         select.addEventListener('change', function() {
             const precio = this.options[this.selectedIndex]?.dataset.precio || '0';
@@ -69,14 +199,20 @@
             calcularSubtotal(rowId);
         });
     });
-    
+
+    // Evento para cambio de cantidad en fila inicial
     document.querySelectorAll('.cantidad-input').forEach(input => {
         input.addEventListener('input', function() {
             const rowId = this.id.split('_')[1];
             calcularSubtotal(rowId);
         });
     });
-    
+
+    // =============================================
+    // FUNCIONES DE CÁLCULO
+    // =============================================
+
+    // Calcula el subtotal de una fila específica
     function calcularSubtotal(rowId) {
         const cantidad = parseFloat(document.getElementById(`cantidad_${rowId}`).value) || 0;
         const precio = parseFloat(document.getElementById(`precio_${rowId}`).textContent) || 0;
@@ -84,7 +220,8 @@
         document.getElementById(`subtotal_${rowId}`).textContent = subtotal.toFixed(2);
         calcularTotal();
     }
-    
+
+    // Calcula el total sumando todos los subtotales
     function calcularTotal() {
         let total = 0;
         document.querySelectorAll('.subtotal').forEach(el => {
