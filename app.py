@@ -238,25 +238,30 @@ def nueva_factura():
 def ver_factura(id):
     if 'usuario' not in session:
         return redirect(url_for('login'))
+    
     conn = get_db_connection()
     cur = conn.cursor()
 
     # Obtener factura
-    cur.execute('''
-        SELECT * FROM obtener_factura_por_id(%s);
-    ''', (id,))
+    cur.execute('''SELECT * FROM obtener_factura_por_id(%s);''', (id,))
     factura = cur.fetchone()
+    #Cambio 9
+    # Validación: si no existe la factura, redirigir con mensaje
+    if not factura:
+        cur.close()
+        conn.close()
+        flash("La factura no existe o ha sido eliminada.", "error")
+        return redirect(url_for('listar_facturas'))
 
     # Obtener items
-    cur.execute('''
-        SELECT * FROM obtener_items_factura(%s);
-    ''', (id,))
+    cur.execute('''SELECT * FROM obtener_items_factura(%s);''', (id,))
     items = cur.fetchall()
 
     cur.close()
     conn.close()
 
     return render_template('ver_factura.html', factura=factura, items=items)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
