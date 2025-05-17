@@ -122,6 +122,24 @@ def nueva_factura():
         items = []
         total = 0
 
+        # CAMBIO 8 
+        # 🛡️ Validación: verificar si el cliente existe
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("SELECT COUNT(*) FROM clientes WHERE id = %s;", (cliente_id,))
+            cliente_existe = cur.fetchone()[0] > 0
+            cur.close()
+            conn.close()
+
+            if not cliente_existe:
+                flash("El cliente no existe.", "error")
+                return redirect(url_for('nueva_factura'))
+        except Exception as e:
+            print(f"Error al verificar cliente: {e}")
+            flash("Error al verificar el cliente.", "error")
+            return redirect(url_for('nueva_factura'))
+
         # Procesar items
         for i in range(1, 6):  # Máximo 5 items por factura
             producto_id = request.form.get(f'producto_id_{i}')
@@ -130,8 +148,17 @@ def nueva_factura():
                 if producto_id and cantidad:
                     conn = get_db_connection()
                     cur = conn.cursor()
+                    # CAMBIO 8
                     cur.execute('SELECT * FROM obtener_precio_producto(%s);', (producto_id,))
-                    precio = cur.fetchone()[0]
+                    # precio = cur.fetchone()[0]
+                    precio_result = cur.fetchone()
+                    if not precio_result or precio_result[0] is None:
+                        flash(f"El producto con ID {producto_id} no existe o no tiene precio.", "error")
+                        cur.close()
+                        conn.close()
+                        return redirect(url_for('nueva_factura'))
+                    precio = precio_result[0]
+
                     subtotal = float(precio) * float(cantidad)
                     items.append({
                         'producto_id': producto_id,
