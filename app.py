@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import psycopg2
-from psycopg2 import sql
+from psycopg2 import sql, errors as pg_errors
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -53,7 +53,9 @@ def login():
             session['usuario'] = str(user[1]).upper()
             return redirect(url_for('listar_facturas'))
         else:
-            return "Credenciales inválidas", 401
+            flash('Nombre de usuario o contraseña incorrectos', 'error')
+            # Si las credenciales son incorrectas, redirigir a la página de inicio de sesión
+            return redirect(url_for('login'))
 
     return render_template('login.html')
 
@@ -62,16 +64,31 @@ def login():
 def register():
     if request.method == 'POST':
         username = request.form['nombre']
+        if not username:
+            print("Nombre de usuario no proporcionado")
+            flash("Por favor, ingrese su nombre de usuario", "error")
+            return redirect(url_for('register'))
         email = request.form['email']
+        if not email:
+            print("Email no proporcionado")
+            flash("Por favor, ingrese su email", "error")
+            return redirect(url_for('register'))
         password = request.form['password']
+        if not password:
+            print("Contraseña no proporcionada")
+            flash("Por favor, ingrese su contraseña", "error")
+            return redirect(url_for('register'))
         key_secret = request.form['key_secret']
+        if not key_secret:
+            print("Clave secreta no proporcionada")
+            flash("Por favor, ingrese la clave secreta", "error")
+            return redirect(url_for('register'))
 
         key = os.environ["KEY_SECRET_ADMIN"]
 
         if key_secret != key:
-            return "Clave secreta incorrecta", 401
-
-        # Verificar si el usuario ya existe
+            flash("Clave secreta incorrecta", "error")
+            return redirect(url_for('register'))
 
         conn = get_db_connection()
         cur = conn.cursor()
@@ -79,10 +96,15 @@ def register():
             cur.execute('CALL insertar_usuario(%s, %s, %s);',
                     (username, email, generate_password_hash(password)))
             conn.commit()
-        except Exception as e:
-            print(f"Error al registrar el usuario: {e}")
+            flash('Usuario registrado exitosamente', 'success')
+        except pg_errors.UniqueViolation:
             conn.rollback()
-            return f"El usuario ya existe con ese username o email", 500
+            flash('El usuario ya existe con ese nombre de usuario', 'error')
+            return redirect(url_for('register'))
+        except Exception as e:
+            conn.rollback()
+            flash('Error al registrar el usuario', 'error')
+            return redirect(url_for('register'))
         finally:
             cur.close()
             conn.close()
@@ -234,7 +256,7 @@ def nueva_factura():
             conn.close()
         return render_template('nueva_factura.html', clientes=clientes, productos=productos)
 
-@app.route('/factura/<int:id>')
+@app.route('/factura/<int:id>', methods=['GET'])
 def ver_factura(id):
     if 'usuario' not in session:
         return redirect(url_for('login'))
@@ -262,6 +284,83 @@ def ver_factura(id):
 
     return render_template('ver_factura.html', factura=factura, items=items)
 
+@app.route('/factura/borrar/<int:id>')
+def borrar_factura(id):
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    try:
+        # Borrar items de la factura
+        cur.execute('CALL borrar_items_factura(%s);', (id,))
+        conn.commit()
+        # Borrar la factura
+        cur.execute('CALL borrar_factura(%s);', (id,))
+        conn.commit()
+        flash("Factura eliminada exitosamente.", "success")
+    except Exception as e:
+            print(f"Error al eliminar la factura: {e}")
+            conn.rollback()
+            flash("Error al eliminar la factura.", "error")
+    finally:
+        cur.close()
+        conn.close()
+
+    return redirect(url_for('listar_facturas'))
+
+@app.route('/factura/registrar_cliente', methods=['POST', 'GET'])
+def registrar_cliente():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        ruc = request.form.get('ruc')
+        if not ruc:
+            print("RUC no proporcionado")
+            flash("El RUC es obligatorio.", "error")
+            return redirect(url_for('nueva_factura'))
+        nombre = request.form.get('nombre').upper()
+        if not nombre:
+            print("Nombre no proporcionado")
+            flash("El nombre es obligatorio.", "error")
+            return redirect(url_for('nueva_factura'))
+        email = request.form.get('email').lower()
+        if not email:
+            print("Email no proporcionado")
+            flash("El email es obligatorio.", "error")
+            return redirect(url_for('nueva_factura'))
+        telefono = request.form.get('telefono')
+        if len(telefono) < 9:
+            print("Teléfono inválido")
+            flash("El teléfono debe tener al menos 9 dígitos.", "error")
+            return redirect(url_for('nueva_factura'))
+        direccion = request.form.get('direccion').upper()
+        if not direccion:
+            print("Dirección no proporcionada")
+            flash("La dirección es obligatoria.", "error")
+            return redirect(url_for('nueva_factura'))
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try:
+            cur.execute('CALL insertar_cliente(%s, %s, %s, %s, %s);', (ruc, nombre, direccion, telefono, email))
+            conn.commit()
+            flash("Cliente registrado exitosamente.", "success")
+        except pg_errors.UniqueViolation:
+            conn.rollback()
+            flash("El cliente ya existe con ese RUC.", "error")
+        except Exception as e:
+            print(f"Error al registrar el cliente: {e}")
+            conn.rollback()
+            flash("Error al registrar el cliente.", "error")
+        finally:
+            cur.close()
+            conn.close()
+    
+    return render_template('registrar_cliente.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
