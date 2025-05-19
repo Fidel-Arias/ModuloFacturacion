@@ -203,6 +203,17 @@ table th {
     text-decoration: underline;
 }
 
+/* Estilos para el formulario de productos */
+.auth-form textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-family: Arial, sans-serif;
+    resize: vertical;
+    min-height: 80px;
+}
+
 /* Estilos para mensajes flash (alertas) */
 .auth-form .alert-error button {
     padding: 0.6rem;

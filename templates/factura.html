@@ -4,6 +4,7 @@
     <h2>Lista de Facturas</h2>
     <a href="{{ url_for('nueva_factura') }}" class="btn">Nueva Factura</a>
     <a href="{{ url_for('registrar_cliente') }}" class="btn">Registrar cliente</a>
+    <a href="{{ url_for('registrar_producto') }}" class="btn">Registrar producto</a>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
