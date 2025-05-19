@@ -123,11 +123,11 @@ def create_tables():
         """,
         """
         CREATE OR REPLACE PROCEDURE insertar_factura_item(
-            IN p_factura_id INTEGER,
-            IN p_producto_id INTEGER,
-            IN p_cantidad NUMERIC,
-            IN p_precio NUMERIC,
-            IN p_subtotal NUMERIC
+            p_factura_id INTEGER,
+            p_producto_id INTEGER,
+            p_cantidad NUMERIC,
+            p_precio NUMERIC,
+            p_subtotal NUMERIC
         )
         LANGUAGE plpgsql
         AS $$
@@ -193,9 +193,9 @@ def create_tables():
         """,
         """
         CREATE OR REPLACE PROCEDURE insertar_usuario(
-            IN p_username TEXT,
-            IN p_email TEXT,
-            IN p_password TEXT
+            p_username TEXT,
+            p_email TEXT,
+            p_password TEXT
         )
         LANGUAGE plpgsql
         AS $$
@@ -273,6 +273,44 @@ def create_tables():
             RAISE NOTICE 'Cliente insertado correctamente con RUC: %', p_ruc;
         END;
         $$;
+        """,
+        """
+        CREATE OR REPLACE PROCEDURE registrar_producto(
+            p_nombre VARCHAR(100),
+            p_descripcion TEXT DEFAULT NULL,
+            p_precio NUMERIC(10,2) DEFAULT 0.00,
+            p_stock INTEGER DEFAULT 0
+        )
+        LANGUAGE plpgsql
+        AS $$
+        BEGIN
+            -- Validar que el nombre no esté vacío
+            IF p_nombre IS NULL OR TRIM(p_nombre) = '' THEN
+                RAISE EXCEPTION 'El nombre del producto no puede estar vacío';
+            END IF;
+            
+            -- Validar que el precio sea positivo
+            IF p_precio <= 0 THEN
+                RAISE EXCEPTION 'El precio debe ser mayor que cero';
+            END IF;
+            
+            -- Validar que el stock no sea negativo
+            IF p_stock < 0 THEN
+                RAISE EXCEPTION 'El stock no puede ser negativo';
+            END IF;
+            
+            -- Validar que el nombre no exista (comparación case-insensitive)
+            IF EXISTS (SELECT 1 FROM productos WHERE LOWER(TRIM(nombre)) = LOWER(TRIM(p_nombre))) THEN
+                RAISE EXCEPTION 'El producto "%" ya está registrado', p_nombre;
+            END IF;
+            
+            -- Insertar el nuevo producto
+            INSERT INTO productos (nombre, descripcion, precio, stock)
+            VALUES (TRIM(p_nombre), NULLIF(TRIM(p_descripcion), ''), p_precio, p_stock);
+            
+            RAISE NOTICE 'Producto registrado exitosamente: %', p_nombre;
+        END;
+        $$;
         """
     )
     
@@ -305,6 +343,7 @@ def create_tables():
         cur.execute("DROP FUNCTION IF EXISTS borrar_factura() CASCADE")
         cur.execute("DROP FUNCTION IF EXISTS borrar_items_factura() CASCADE")
         cur.execute("DROP FUNCTION IF EXISTS insertar_cliente() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS registrar_producto() CASCADE")
 
         for command in commands:
             cur.execute(command)
@@ -325,23 +364,6 @@ def create_tables():
             conn.close()
 
 def insert_test_data(cur):
-    # Verificar si ya hay datos
-    cur.execute("SELECT COUNT(*) FROM clientes;")
-    if cur.fetchone()[0] > 0:
-        return
-    
-    # Insertar clientes
-    clientes = [
-        ("Cliente Uno", "10258498574", "Calle 123", "555-1234", "cliente1@example.com"),
-        ("Cliente Dos", "10784596523", "Avenida 456", "555-5678", "cliente2@example.com"),
-        ("Cliente Tres", "10875425896", "Boulevard 789", "555-9012", "cliente3@example.com")
-    ]
-    
-    for cliente in clientes:
-        cur.execute(
-            "INSERT INTO clientes (nombre, ruc, direccion, telefono, email) VALUES (%s, %s, %s, %s, %s);",
-            cliente
-        )
     
     # Insertar productos
     productos = [

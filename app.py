@@ -362,5 +362,44 @@ def registrar_cliente():
     
     return render_template('registrar_cliente.html')
 
+@app.route('/factura/registrar_producto', methods=['POST', 'GET'])
+def registrar_producto():
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        nombre = request.form.get('nombre').upper()
+        descripcion = request.form.get('descripcion').upper()
+        precio = request.form.get('precio')
+        stock = request.form.get('stock')
+
+        if not nombre or not descripcion or not precio or not stock:
+            flash("Todos los campos son obligatorios.", "error")
+            return redirect(url_for('registrar_producto'))
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        try:
+            cur.execute('CALL registrar_producto(%s, %s, %s, %s);', (nombre, descripcion, precio, stock))
+            conn.commit()
+            flash("Producto registrado exitosamente.", "success")
+        except pg_errors.RaiseException as e:
+            print(f"Error al registrar el producto: {e}")
+            conn.rollback()
+            flash("El producto ya existe.", "error")
+        except pg_errors.UniqueViolation:
+            conn.rollback()
+            flash("El producto ya existe.", "error")
+        except Exception as e:
+            print(f"Error al registrar el producto: {e}")
+            conn.rollback()
+            flash("Error al registrar el producto.", "error")
+        finally:
+            cur.close()
+            conn.close()
+
+    return render_template('registrar_producto.html')
+
 if __name__ == '__main__':
     app.run(debug=True)
