@@ -403,3 +403,103 @@ def registrar_producto():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+@app.route('/factura/editar/<int:id>', methods=['GET', 'POST'])
+def editar_factura(id):
+    if 'usuario' not in session:
+        return redirect(url_for('login'))
+
+    conn = None
+    cur = None
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Obtener datos básicos de la factura
+        cur.execute('SELECT id, cliente_id, total, numero FROM facturas WHERE id = %s;', (id,))
+        factura = cur.fetchone()
+
+        if not factura:
+            flash('Factura no encontrada', 'danger')
+            return redirect(url_for('listar_facturas'))
+
+        # Manejo del POST (actualización)
+        if request.method == 'POST':
+            cliente_id = request.form['cliente_id']
+            items = []
+
+            # Procesar los 5 posibles productos del formulario
+            for i in range(1, 6):
+                producto_id = request.form.get(f'producto_id_{i}')
+                cantidad = request.form.get(f'cantidad_{i}')
+                
+                if producto_id and cantidad and int(cantidad) > 0:
+                    precio = request.form.get(f'precio_{i}')
+                    items.append({
+                        'producto_id': producto_id,
+                        'cantidad': cantidad,
+                        'precio': precio
+                    })
+
+            try:
+                # Convertir a JSON para el procedimiento almacenado
+                productos_json = json.dumps(items)
+                
+                # Ejecutar el procedimiento almacenado
+                cur.execute("CALL actualizar_factura_con_productos(%s, %s, %s)", (id, cliente_id, productos_json))
+                conn.commit()
+                
+                flash('Factura actualizada correctamente', 'success')
+                return redirect(url_for('ver_factura', id=id))
+
+            except Exception as e:
+                conn.rollback()
+                flash(f'Error al actualizar factura: {str(e)}', 'danger')
+
+        # Obtener datos para el formulario (GET o POST con error)
+        cur.execute('''
+            SELECT fi.id, fi.producto_id, p.nombre, fi.cantidad, fi.precio, fi.subtotal
+            FROM factura_items fi
+            JOIN productos p ON fi.producto_id = p.id
+            WHERE fi.factura_id = %s
+            ORDER BY fi.id;
+        ''', (id,))
+        items = cur.fetchall()
+
+        cur.execute('SELECT id, nombre FROM clientes ORDER BY nombre;')
+        clientes = cur.fetchall()
+
+        cur.execute('SELECT id, nombre, precio FROM productos ORDER BY nombre;')
+        productos = cur.fetchall()
+
+        # Preparar datos para los selects
+        productos_seleccionados = {}
+        cantidades_seleccionadas = {}
+        
+        for idx in range(5):  # Para las 5 filas del formulario
+            if idx < len(items):
+                productos_seleccionados[f'producto_id_{idx+1}'] = items[idx][1]  # producto_id
+                cantidades_seleccionadas[f'cantidad_{idx+1}'] = items[idx][3]    # cantidad
+            else:
+                productos_seleccionados[f'producto_id_{idx+1}'] = ''
+                cantidades_seleccionadas[f'cantidad_{idx+1}'] = ''
+
+        return render_template(
+            'editar_factura.html',
+            factura=factura,
+            items=items,
+            clientes=clientes,
+            productos=productos,
+            productos_seleccionados=productos_seleccionados,
+            cantidades_seleccionadas=cantidades_seleccionadas
+        )
+
+    except Exception as e:
+        flash(f'Error al cargar la página: {str(e)}', 'danger')
+        return redirect(url_for('listar_facturas'))
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
