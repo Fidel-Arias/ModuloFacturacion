@@ -3,6 +3,10 @@ import psycopg2
 from psycopg2 import sql, errors as pg_errors
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+from dotenv import load_dotenv
+import os
+
+load_dotenv()  # Carga las variables del archivo .env
 
 app = Flask(__name__)
 app.secret_key = os.environ["FLASK_SECRET_KEY"]
@@ -19,11 +23,10 @@ DB_CONFIG = {
 def get_db_connection():
     conn = psycopg2.connect(**DB_CONFIG)
     return conn
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
+        username = request.form['username'].upper().strip()  # IMPLEMENTACION DEL STRIP PARA QUITAR ESPACIOS
         password = request.form['password']
 
         if not username or not password:
