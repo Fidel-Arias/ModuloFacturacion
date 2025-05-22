@@ -36,7 +36,7 @@ Ejecuta el archivo `init_db.py`una unica vez para crear las tablas y valores
 # Integrantes del proyecto
 + 2022100151 Arias Arias Fidel Reynaldo - Usuario: fidel-arias
 + 2022601021 Del Arroyo Calla Rafael Raul - Usuario: RafaelDelArroyoCalla
-+ 2022404592 Laureano Tupac Yupanki Natty Jimena - Usuario: natt25
++ 2022404592 Laureano Tupac Yupanqui Natty Jimena - Usuario: natt25
 + 2022246652 Mamani Mendiguri Mirella Thiani - Usuario: MIRELLAMM4
 + 2020177181 Merma Alarcon Luis A. - Usuario: Wasausky16
 
