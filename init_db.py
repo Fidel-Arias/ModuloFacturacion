@@ -351,9 +351,6 @@ def create_tables():
         for procedure in procedures:
             cur.execute(procedure)
         
-        # Insertar datos de prueba
-        insert_test_data(cur)
-        
         conn.commit()
         cur.close()
         print("Tablas creadas y datos de prueba insertados correctamente.")
@@ -363,22 +360,6 @@ def create_tables():
         if conn is not None:
             conn.close()
 
-def insert_test_data(cur):
-    
-    # Insertar productos
-    productos = [
-        ("Producto A", "Descripción producto A", 10.50),
-        ("Producto B", "Descripción producto B", 25.75),
-        ("Producto C", "Descripción producto C", 5.99),
-        ("Producto D", "Descripción producto D", 100.00),
-        ("Producto E", "Descripción producto E", 15.25)
-    ]
-    
-    for producto in productos:
-        cur.execute(
-            "INSERT INTO productos (nombre, descripcion, precio) VALUES (%s, %s, %s);",
-            producto
-        )
 
 if __name__ == '__main__':
     create_tables()
