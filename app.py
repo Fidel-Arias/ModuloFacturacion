@@ -62,16 +62,15 @@ def login():
 
     return render_template('login.html')
 
-
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        username = request.form['nombre']
+        username = request.form['nombre'].strip().upper() # IMPLEMENTACION DEL STRIP PARA QUITAR ESPACIOS
         if not username:
             print("Nombre de usuario no proporcionado")
             flash("Por favor, ingrese su nombre de usuario", "error")
             return redirect(url_for('register'))
-        email = request.form['email']
+        email = request.form['email'].strip().lower() # IMPLEMENTACION DEL STRIP PARA QUITAR ESPACIOS
         if not email:
             print("Email no proporcionado")
             flash("Por favor, ingrese su email", "error")
