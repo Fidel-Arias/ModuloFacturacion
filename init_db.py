@@ -344,6 +344,7 @@ def create_tables():
         cur.execute("DROP FUNCTION IF EXISTS borrar_items_factura() CASCADE")
         cur.execute("DROP FUNCTION IF EXISTS insertar_cliente() CASCADE")
         cur.execute("DROP FUNCTION IF EXISTS registrar_producto() CASCADE")
+        cur.execute("DROP FUNCTION IF EXISTS actualizar_factura_con_productos() CASCADE")
 
         for command in commands:
             cur.execute(command)
