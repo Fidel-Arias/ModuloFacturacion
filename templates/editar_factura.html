@@ -122,9 +122,9 @@
   document.addEventListener('DOMContentLoaded', function() {
       // Habilitar/deshabilitar campos según selección de producto
       function updateRowState(rowId) {
-          const productoSelect = document.getElementById(producto_id_${rowId});
-          const cantidadInput = document.getElementById(cantidad_${rowId});
-          const removeBtn = document.querySelector(#items-table tr:nth-child(${rowId}) .btn-remove-item);
+          const productoSelect = document.getElementById(`producto_id_${rowId}`);
+          const cantidadInput = document.getElementById(`cantidad_${rowId}`);
+          const removeBtn = document.querySelector(`#items-table tr:nth-child(${rowId}) .btn-remove-item`);
 
           if (productoSelect.value) {
               cantidadInput.disabled = false;
@@ -133,9 +133,9 @@
           } else {
               cantidadInput.disabled = true;
               cantidadInput.value = '';
-              document.getElementById(precio_${rowId}).textContent = '0.00';
-              document.getElementById(precio_hidden_${rowId}).value = '0';
-              document.getElementById(subtotal_${rowId}).textContent = '0.00';
+              document.getElementById(`precio_${rowId}`).textContent = '0.00';
+              document.getElementById(`precio_hidden_${rowId}`).value = '0';
+              document.getElementById(`subtotal_${rowId}`).textContent = '0.00';
               if (removeBtn) removeBtn.disabled = true;
               calcularTotal();
           }
@@ -143,10 +143,10 @@
 
       // Calcular subtotal para una fila
       function calcularSubtotal(rowId) {
-          const cantidad = parseFloat(document.getElementById(cantidad_${rowId}).value) || 0;
-          const precio = parseFloat(document.getElementById(precio_hidden_${rowId}).value) || 0;
+          const cantidad = parseFloat(document.getElementById(`cantidad_${rowId}`).value) || 0;
+          const precio = parseFloat(document.getElementById(`precio_hidden_${rowId}`).value) || 0;
           const subtotal = cantidad * precio;
-          document.getElementById(subtotal_${rowId}).textContent = subtotal.toFixed(2);
+          document.getElementById(`subtotal_${rowId}`).textContent = subtotal.toFixed(2);
           calcularTotal();
       }
 
@@ -166,8 +166,8 @@
 
           select.addEventListener('change', function() {
               const precio = this.options[this.selectedIndex]?.dataset.precio || '0';
-              document.getElementById(precio_hidden_${rowId}).value = precio;
-              document.getElementById(precio_${rowId}).textContent = parseFloat(precio).toFixed(2);
+              document.getElementById(`precio_hidden_${rowId}`).value = precio;
+              document.getElementById(`precio_${rowId}`).textContent = parseFloat(precio).toFixed(2);
               updateRowState(rowId);
           });
 
@@ -190,8 +190,8 @@
               const rowId = row.rowIndex;
 
               // Resetear valores de la fila
-              document.getElementById(producto_id_${rowId}).value = '';
-              document.getElementById(cantidad_${rowId}).value = '';
+              document.getElementById(`producto_id_${rowId}`).value = '';
+              document.getElementById(`cantidad_${rowId}`).value = '';
               updateRowState(rowId);
           });
       });
