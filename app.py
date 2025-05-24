@@ -5,6 +5,7 @@ import os
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
+import json
 
 load_dotenv()  # Carga las variables del archivo .env
 
