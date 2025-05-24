@@ -97,6 +97,10 @@ table th {
     cursor: pointer;
 }
 
+.editar:hover {
+    background: #e67e22;
+}
+
 .borrar {
     background: #e74c3c;
     color: white;
