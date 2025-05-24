@@ -31,7 +31,7 @@ Instala las dependencias
 
 Crea una base de datos con nombre `facturacion_db`
 
-Ejecuta el archivo `init_db.py`una unica vez para crear las tablas y valores
+Ejecuta el archivo `init_db.py`una unica vez para crear las tablas y procedimientos almacenados.
 
 # Integrantes del proyecto
 + 2022100151 Arias Arias Fidel Reynaldo - Usuario: fidel-arias
