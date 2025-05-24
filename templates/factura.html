@@ -37,6 +37,7 @@
                 <td>
                     <a href="{{ url_for('ver_factura', id=factura[0]) }}" class="btn">Ver</a>
                     <a href="{{ url_for('borrar_factura', id=factura[0]) }}" class="btn borrar">Borrar</a>
+                    <a href="{{ url_for('editar_factura', id=factura[0]) }}" class="btn editar">Editar</a>
                 </td>
             </tr>
             {% endfor %}
